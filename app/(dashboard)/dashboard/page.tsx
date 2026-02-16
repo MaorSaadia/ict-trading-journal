@@ -15,12 +15,27 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // Fetch profile to show subscription tier
+  // Fetch profile
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
+
+  // Fetch basic stats
+  const { count: totalTrades } = await supabase
+    .from('trades')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  const { data: trades } = await supabase
+    .from('trades')
+    .select('pnl')
+    .eq('user_id', user.id)
+
+  const totalPnL = trades?.reduce((sum, trade) => sum + (trade.pnl || 0), 0) || 0
+  const winningTrades = trades?.filter(trade => (trade.pnl || 0) > 0).length || 0
+  const winRate = totalTrades ? ((winningTrades / totalTrades) * 100).toFixed(0) : 0
 
   const handleSignOut = async () => {
     'use server'
@@ -48,6 +63,34 @@ export default async function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* Navigation Tabs */}
+      <div className="border-b">
+        <div className="container mx-auto px-4">
+          <nav className="flex gap-6">
+            <Link href="/dashboard">
+              <Button variant="ghost" className="rounded-none border-b-2 border-primary">
+                Dashboard
+              </Button>
+            </Link>
+            <Link href="/journal">
+              <Button variant="ghost" className="rounded-none border-b-2 border-transparent">
+                Journal
+              </Button>
+            </Link>
+            <Link href="/analytics">
+              <Button variant="ghost" className="rounded-none border-b-2 border-transparent" disabled>
+                Analytics
+              </Button>
+            </Link>
+            <Link href="/prop-firms">
+              <Button variant="ghost" className="rounded-none border-b-2 border-transparent" disabled>
+                Prop Firms
+              </Button>
+            </Link>
+          </nav>
+        </div>
+      </div>
 
       {/* Main content */}
       <main className="flex-1 p-8">
@@ -77,17 +120,17 @@ export default async function DashboardPage() {
                 <CardDescription>All time</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">0</p>
+                <p className="text-3xl font-bold">{totalTrades || 0}</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle>Win Rate</CardTitle>
-                <CardDescription>Last 30 days</CardDescription>
+                <CardDescription>All time</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">0%</p>
+                <p className="text-3xl font-bold">{winRate}%</p>
               </CardContent>
             </Card>
 
@@ -97,7 +140,13 @@ export default async function DashboardPage() {
                 <CardDescription>All time</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">$0.00</p>
+                <p className={`text-3xl font-bold ${
+                  totalPnL >= 0 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  ${totalPnL.toFixed(2)}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -115,10 +164,20 @@ export default async function DashboardPage() {
                 <span>Create your account</span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                  <span className="text-muted-foreground">2</span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  totalTrades && totalTrades > 0
+                    ? 'bg-green-500/20'
+                    : 'bg-muted'
+                }`}>
+                  <span className={totalTrades && totalTrades > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+                    {totalTrades && totalTrades > 0 ? '✓' : '2'}
+                  </span>
                 </div>
-                <span className="text-muted-foreground">Add your first trade (Coming soon)</span>
+                <Link href="/journal" className="hover:underline">
+                  <span className={totalTrades && totalTrades > 0 ? '' : 'text-muted-foreground'}>
+                    Add your first trade {totalTrades && totalTrades > 0 ? '(Complete!)' : ''}
+                  </span>
+                </Link>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
