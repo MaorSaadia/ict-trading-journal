@@ -20,8 +20,10 @@ import {
 export default async function TradeDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>   // ← was: { id: string }
 }) {
+  const { id } = await params        // ← add this line
+
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,10 +32,10 @@ export default async function TradeDetailPage({
   const { data: trade } = await supabase
     .from('trades')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)                    // ← was: params.id
     .eq('user_id', user.id)
     .single()
-
+    
   if (!trade) notFound()
 
   // Fetch linked prop firm if exists

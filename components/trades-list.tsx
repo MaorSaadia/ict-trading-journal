@@ -145,7 +145,6 @@ if (trades.length === 0) {
                     </div>
                   )}
                 </div>
-
   <Link href={`/journal/${trade.id}`} className="text-sm hover:underline hover:text-primary transition-colors">
   {format(new Date(trade.trade_date), 'MMM d, yyyy')}
 </Link>
