@@ -20,7 +20,7 @@ export function PnLChart({ data }: PnLChartProps) {
   if (data.length === 0) {
     return (
       <ChartCard title="P&L Over Time" description="Cumulative profit/loss">
-        <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
+        <div className="h-62.5 flex items-center justify-center text-muted-foreground text-sm">
           No trade data yet
         </div>
       </ChartCard>

@@ -21,37 +21,48 @@ import { createClient } from '@/lib/supabase/client'
 import { uploadTradeImage, deleteTradeImage } from '@/lib/upload-image'
 import type { Trade } from '@/lib/types'
 
+// ✅ Schema includes prop_firm_id
 const tradeSchema = z.object({
+  prop_firm_id: z.string().optional(),
   trade_date: z.string().min(1, 'Date is required'),
   pair: z.string().min(1, 'Pair is required'),
-  direction: z.enum(['long', 'short']),
+  direction: z.enum(['long', 'short']).catch('long'),
   entry_price: z.string().min(1, 'Entry price is required'),
   exit_price: z.string().min(1, 'Exit price is required'),
   lot_size: z.string().min(1, 'Lot size is required'),
-  session: z.enum(['london', 'newyork', 'asia', 'other']),
+  session: z.enum(['london', 'newyork', 'asia', 'other']).catch('other'),
   user_notes: z.string().optional(),
 })
 
 type TradeFormData = z.infer<typeof tradeSchema>
 
+// ✅ PropFirm type defined here
+interface PropFirm {
+  id: string
+  firm_name: string
+  challenge_type: string
+}
+
+// ✅ Props interface with propFirms properly typed
 interface TradeFormProps {
   trade?: Trade
   onSuccess: () => void
+  propFirms?: PropFirm[] // ← This was missing before!
 }
 
-export function TradeForm({ trade, onSuccess }: TradeFormProps) {
+export function TradeForm({ trade, onSuccess, propFirms = [] }: TradeFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // ✅ FIX: Track both the current URL and any new file separately
-  // currentImageUrl = what's already saved in DB (shown on edit)
-  // newImageFile = a new file the user just selected (null = no change)
-  // removeImage = user clicked X to remove the image
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(
     trade?.image_url || null
   )
   const [newImageFile, setNewImageFile] = useState<File | null>(null)
   const [removeImage, setRemoveImage] = useState(false)
+
+  // ✅ Track selected prop firm in local state (not just form state)
+  const [selectedPropFirm, setSelectedPropFirm] = useState<string>(
+    trade?.prop_firm_id || 'none'
+  )
 
   const supabase = createClient()
 
@@ -65,6 +76,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
     resolver: zodResolver(tradeSchema),
     defaultValues: trade
       ? {
+          prop_firm_id: trade.prop_firm_id || '',
           trade_date: new Date(trade.trade_date).toISOString().split('T')[0],
           pair: trade.pair,
           direction: trade.direction,
@@ -75,6 +87,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
           user_notes: trade.user_notes || '',
         }
       : {
+          prop_firm_id: '',
           trade_date: new Date().toISOString().split('T')[0],
           direction: 'long',
           session: 'newyork',
@@ -85,15 +98,12 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
   const direction = watch('direction')
   const session = watch('session')
 
-  // ✅ FIX: Handle image changes from ImageUpload
   const handleImageChange = (file: File | null) => {
     if (file === null) {
-      // User removed the image
       setNewImageFile(null)
       setRemoveImage(true)
       setCurrentImageUrl(null)
     } else {
-      // User selected a new file
       setNewImageFile(file)
       setRemoveImage(false)
     }
@@ -112,11 +122,9 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
 
       let finalImageUrl: string | null = currentImageUrl
 
-      // Upload new image if user selected one
+      // Upload new image if selected
       if (newImageFile) {
         finalImageUrl = await uploadTradeImage(newImageFile, user.id)
-
-        // Delete old image if replacing
         if (trade?.image_url && trade.image_url !== finalImageUrl) {
           try {
             await deleteTradeImage(trade.image_url, user.id)
@@ -126,7 +134,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         }
       }
 
-      // Delete image if user removed it
+      // Delete image if removed
       if (removeImage && trade?.image_url) {
         try {
           await deleteTradeImage(trade.image_url, user.id)
@@ -157,6 +165,10 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         pnl: pnl,
         session: data.session,
         user_notes: data.user_notes || null,
+        // ✅ Only save prop firm ID if one was actually selected
+        prop_firm_id: selectedPropFirm && selectedPropFirm !== 'none'
+          ? selectedPropFirm
+          : null,
       }
 
       if (trade) {
@@ -188,7 +200,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         </div>
       )}
 
-      {/* ✅ FIX: Pass existing image URL as value so it shows on edit */}
+      {/* Image Upload */}
       <div className="space-y-2">
         <Label>Trade Screenshot (Optional)</Label>
         <ImageUpload
@@ -198,6 +210,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         />
       </div>
 
+      {/* Date & Pair */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="trade_date">Trade Date</Label>
@@ -224,6 +237,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         </div>
       </div>
 
+      {/* Direction & Session */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Direction</Label>
@@ -266,6 +280,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         </div>
       </div>
 
+      {/* Entry, Exit, Lot Size */}
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="entry_price">Entry Price</Label>
@@ -310,6 +325,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         </div>
       </div>
 
+      {/* Notes */}
       <div className="space-y-2">
         <Label htmlFor="user_notes">Notes (Optional)</Label>
         <Textarea
@@ -319,6 +335,32 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
           {...register('user_notes')}
         />
       </div>
+
+      {/* ✅ Prop Firm Selector - only shows if user has active challenges */}
+      {propFirms.length > 0 && (
+        <div className="space-y-2">
+          <Label>Link to Prop Firm (Optional)</Label>
+          <Select
+            value={selectedPropFirm}
+            onValueChange={(value) => {
+              setSelectedPropFirm(value)
+              setValue('prop_firm_id', value === 'none' ? '' : value)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select prop firm challenge" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No prop firm</SelectItem>
+              {propFirms.map((firm) => (
+                <SelectItem key={firm.id} value={firm.id}>
+                  {firm.firm_name} — {firm.challenge_type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="flex justify-end">
         <Button type="submit" disabled={loading}>

@@ -12,21 +12,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { TradeForm } from '@/components/trade-form'
+import { PropFirmForm } from './prop-firm-form'
 
-// ✅ PropFirm type
-interface PropFirm {
-  id: string
-  firm_name: string
-  challenge_type: string
-}
-
-// ✅ Props with propFirms
-interface NewTradeDialogProps {
-  propFirms?: PropFirm[]
-}
-
-export function NewTradeDialog({ propFirms = [] }: NewTradeDialogProps) {
+export function NewPropFirmDialog() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
@@ -40,18 +28,17 @@ export function NewTradeDialog({ propFirms = [] }: NewTradeDialogProps) {
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          New Trade
+          Add Challenge
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Trade</DialogTitle>
+          <DialogTitle>New Prop Firm Challenge</DialogTitle>
           <DialogDescription>
-            Enter your trade details manually
+            Set up your challenge rules to track progress
           </DialogDescription>
         </DialogHeader>
-        {/* ✅ Pass propFirms down to TradeForm */}
-        <TradeForm onSuccess={handleSuccess} propFirms={propFirms} />
+        <PropFirmForm onSuccess={handleSuccess} />
       </DialogContent>
     </Dialog>
   )

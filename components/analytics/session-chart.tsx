@@ -23,7 +23,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const item = payload[0].payload
     return (
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-3 text-sm min-w-[150px]">
+      <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-3 text-sm min-w-37.5">
         <p className="font-semibold mb-2">{item.session}</p>
         <div className="space-y-1">
           <p className="text-muted-foreground">
@@ -55,7 +55,7 @@ export function SessionChart({ data }: SessionChartProps) {
   if (data.length === 0) {
     return (
       <ChartCard title="Performance by Session" description="Win rate per trading session">
-        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+        <div className="h-70 flex items-center justify-center text-muted-foreground text-sm">
           No session data yet
         </div>
       </ChartCard>

@@ -42,11 +42,19 @@ import { AnalyzeButton } from '@/components/analyze-button'
 import { AIAnalysisDisplay } from '@/components/ai-analysis-display'
 import type { Trade } from '@/lib/types'
 
-interface TradesListProps {
-  trades: Trade[]
+// ✅ PropFirm type
+interface PropFirm {
+  id: string
+  firm_name: string
+  challenge_type: string
 }
 
-export function TradesList({ trades }: TradesListProps) {
+interface TradesListProps {
+  trades: Trade[]
+  propFirms?: PropFirm[] // ✅ Added prop
+}
+
+export function TradesList({ trades, propFirms = [] }: TradesListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editTrade, setEditTrade] = useState<Trade | null>(null)
   const [viewImage, setViewImage] = useState<string | null>(null)
@@ -91,8 +99,8 @@ export function TradesList({ trades }: TradesListProps) {
 
   return (
     <>
-      {/* Header row */}
       <div className="border rounded-lg overflow-hidden">
+        {/* Header row */}
         <div className="grid grid-cols-[40px_120px_80px_80px_100px_100px_60px_80px_120px_140px_80px] gap-2 px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground">
           <div></div>
           <div>Date</div>
@@ -110,7 +118,6 @@ export function TradesList({ trades }: TradesListProps) {
         <div className="divide-y">
           {trades.map((trade) => (
             <div key={trade.id}>
-              {/* Trade Row */}
               <div className="grid grid-cols-[40px_120px_80px_80px_100px_100px_60px_80px_120px_140px_80px] gap-2 px-4 py-3 items-center hover:bg-muted/20 transition-colors">
 
                 {/* Screenshot icon */}
@@ -130,31 +137,22 @@ export function TradesList({ trades }: TradesListProps) {
                   )}
                 </div>
 
-                {/* Date */}
                 <div className="text-sm">
                   {format(new Date(trade.trade_date), 'MMM d, yyyy')}
                 </div>
 
-                {/* Pair */}
                 <div className="font-medium text-sm">{trade.pair}</div>
 
-                {/* Direction */}
                 <div>
                   <Badge variant={trade.direction === 'long' ? 'default' : 'secondary'}>
                     {trade.direction}
                   </Badge>
                 </div>
 
-                {/* Entry */}
                 <div className="text-sm font-mono">{trade.entry_price?.toFixed(5)}</div>
-
-                {/* Exit */}
                 <div className="text-sm font-mono">{trade.exit_price?.toFixed(5)}</div>
-
-                {/* Size */}
                 <div className="text-sm">{trade.lot_size}</div>
 
-                {/* P&L */}
                 <div>
                   <span className={`font-semibold text-sm ${
                     (trade.pnl || 0) >= 0
@@ -165,29 +163,21 @@ export function TradesList({ trades }: TradesListProps) {
                   </span>
                 </div>
 
-                {/* Session + Entry Quality */}
                 <div className="flex flex-col gap-1">
                   <Badge variant="outline" className="capitalize text-xs w-fit">
                     {trade.session}
                   </Badge>
                   {trade.entry_quality && (
                     <Badge className={`text-xs w-fit border-0
-                      ${trade.entry_quality === 'High Probability'
-                        ? 'bg-green-500/20 text-green-700 dark:text-green-400'
-                        : ''}
-                      ${trade.entry_quality === 'Aggressive'
-                        ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
-                        : ''}
-                      ${trade.entry_quality === 'Poor'
-                        ? 'bg-red-500/20 text-red-700 dark:text-red-400'
-                        : ''}
+                      ${trade.entry_quality === 'High Probability' ? 'bg-green-500/20 text-green-700 dark:text-green-400' : ''}
+                      ${trade.entry_quality === 'Aggressive' ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400' : ''}
+                      ${trade.entry_quality === 'Poor' ? 'bg-red-500/20 text-red-700 dark:text-red-400' : ''}
                     `}>
                       {trade.entry_quality}
                     </Badge>
                   )}
                 </div>
 
-                {/* ✅ FIX 1: Analyze Button - wrapped in div with z-index to fix clickability */}
                 <div className="relative z-10">
                   <AnalyzeButton
                     tradeId={trade.id}
@@ -196,15 +186,11 @@ export function TradesList({ trades }: TradesListProps) {
                   />
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-1">
-                  {/* Expand AI analysis toggle */}
                   {trade.ai_analysis && (
                     <button
                       type="button"
-                      onClick={() => setExpandedId(
-                        expandedId === trade.id ? null : trade.id
-                      )}
+                      onClick={() => setExpandedId(expandedId === trade.id ? null : trade.id)}
                       className="w-8 h-8 flex items-center justify-center rounded hover:bg-muted transition-colors"
                     >
                       {expandedId === trade.id
@@ -237,7 +223,7 @@ export function TradesList({ trades }: TradesListProps) {
                 </div>
               </div>
 
-              {/* Expandable AI Analysis Panel */}
+              {/* AI Analysis Panel */}
               {expandedId === trade.id && trade.ai_analysis && (
                 <div className="px-6 pb-6 bg-muted/10 border-t">
                   <div className="pt-4 max-w-3xl">
@@ -277,14 +263,18 @@ export function TradesList({ trades }: TradesListProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ✅ FIX 3: Edit Dialog - passes full trade including image_url */}
+      {/* ✅ Edit Dialog - passes propFirms so selector shows */}
       <Dialog open={!!editTrade} onOpenChange={() => setEditTrade(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Trade</DialogTitle>
           </DialogHeader>
           {editTrade && (
-            <TradeForm trade={editTrade} onSuccess={handleEditSuccess} />
+            <TradeForm
+              trade={editTrade}
+              onSuccess={handleEditSuccess}
+              propFirms={propFirms}
+            />
           )}
         </DialogContent>
       </Dialog>
