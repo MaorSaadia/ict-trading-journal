@@ -35,12 +35,14 @@ import {
   Image as ImageIcon,
   ChevronDown,
   ChevronUp,
+  TrendingUp,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { TradeForm } from '@/components/trade-form'
 import { AnalyzeButton } from '@/components/analyze-button'
 import { AIAnalysisDisplay } from '@/components/ai-analysis-display'
 import type { Trade } from '@/lib/types'
+import Link from 'next/link'
 
 // ✅ PropFirm type
 interface PropFirm {
@@ -85,17 +87,24 @@ export function TradesList({ trades, propFirms = [] }: TradesListProps) {
     setEditTrade(null)
     router.refresh()
   }
-
-  if (trades.length === 0) {
-    return (
-      <div className="border rounded-lg p-12 text-center">
-        <h3 className="text-lg font-medium mb-2">No trades yet</h3>
-        <p className="text-muted-foreground mb-4">
-          Start by adding your first trade
+if (trades.length === 0) {
+  return (
+    <div className="border rounded-lg border-dashed p-16 text-center space-y-4">
+      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+        <TrendingUp className="h-8 w-8 text-primary" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold mb-1">No trades yet</h3>
+        <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+          Start tracking your trades to get AI-powered ICT analysis and performance insights.
         </p>
       </div>
-    )
-  }
+      <p className="text-xs text-muted-foreground">
+        Click &quot;New Trade&quot; above to add your first trade
+      </p>
+    </div>
+  )
+}
 
   return (
     <>
@@ -137,12 +146,13 @@ export function TradesList({ trades, propFirms = [] }: TradesListProps) {
                   )}
                 </div>
 
-                <div className="text-sm">
-                  {format(new Date(trade.trade_date), 'MMM d, yyyy')}
-                </div>
+  <Link href={`/journal/${trade.id}`} className="text-sm hover:underline hover:text-primary transition-colors">
+  {format(new Date(trade.trade_date), 'MMM d, yyyy')}
+</Link>
 
-                <div className="font-medium text-sm">{trade.pair}</div>
-
+<Link href={`/journal/${trade.id}`} className="font-medium text-sm hover:underline hover:text-primary transition-colors">
+  {trade.pair}
+</Link>
                 <div>
                   <Badge variant={trade.direction === 'long' ? 'default' : 'secondary'}>
                     {trade.direction}

@@ -9,6 +9,12 @@ interface AIAnalysisDisplayProps {
 }
 
 export function AIAnalysisDisplay({ analysis }: AIAnalysisDisplayProps) {
+const qualityScore = {
+  'High Probability': { score: 85, color: 'text-green-600 dark:text-green-400' },
+  'Aggressive': { score: 55, color: 'text-yellow-600 dark:text-yellow-400' },
+  'Poor': { score: 25, color: 'text-red-600 dark:text-red-400' },
+}
+
   return (
     <div className="space-y-4">
 
@@ -21,6 +27,13 @@ export function AIAnalysisDisplay({ analysis }: AIAnalysisDisplayProps) {
           : 'bg-red-500/10 border-red-500/50'
         }`}
       >
+        <div className="text-right">
+  <p className="text-xs text-muted-foreground">ICT Score</p>
+  <p className={`text-2xl font-bold ${qualityScore[analysis.entryQuality]?.color || 'text-muted-foreground'}`}>
+    {qualityScore[analysis.entryQuality]?.score || 0}
+    <span className="text-sm font-normal">/100</span>
+  </p>
+</div>
         <div className="flex items-center gap-3">
           <TrendingUp className={`h-5 w-5
             ${analysis.entryQuality === 'High Probability' ? 'text-green-500' : ''}
