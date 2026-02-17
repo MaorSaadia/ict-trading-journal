@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
+import Image from 'next/image'
 import {
   Table,
   TableBody,
@@ -30,7 +31,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { MoreVertical, Pencil, Trash2, Image as ImageIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { TradeForm } from '@/components/trade-form'
 import type { Trade } from '@/lib/types'
@@ -42,6 +43,7 @@ interface TradesListProps {
 export function TradesList({ trades }: TradesListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editTrade, setEditTrade] = useState<Trade | null>(null)
+  const [viewImage, setViewImage] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -89,6 +91,7 @@ export function TradesList({ trades }: TradesListProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12.5"></TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Pair</TableHead>
               <TableHead>Direction</TableHead>
@@ -97,12 +100,27 @@ export function TradesList({ trades }: TradesListProps) {
               <TableHead>Size</TableHead>
               <TableHead>P&L</TableHead>
               <TableHead>Session</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-12.5"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {trades.map((trade) => (
               <TableRow key={trade.id}>
+                <TableCell>
+                  {trade.image_url ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setViewImage(trade.image_url)}
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <div className="w-10 h-10 flex items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground/30" />
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell>
                   {format(new Date(trade.trade_date), 'MMM d, yyyy')}
                 </TableCell>
@@ -160,6 +178,25 @@ export function TradesList({ trades }: TradesListProps) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={!!viewImage} onOpenChange={() => setViewImage(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Trade Screenshot</DialogTitle>
+          </DialogHeader>
+          {viewImage && (
+            <div className="relative aspect-video w-full">
+              <Image
+                src={viewImage}
+                alt="Trade screenshot"
+                fill
+                className="object-contain rounded-lg"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editTrade} onOpenChange={() => setEditTrade(null)}>

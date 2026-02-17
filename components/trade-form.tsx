@@ -16,21 +16,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ImageUpload } from '@/components/image-upload'
 import { createClient } from '@/lib/supabase/client'
+import { uploadTradeImage, deleteTradeImage } from '@/lib/upload-image'
 import type { Trade } from '@/lib/types'
 
 const tradeSchema = z.object({
   trade_date: z.string().min(1, 'Date is required'),
   pair: z.string().min(1, 'Pair is required'),
-  direction: z.enum(['long', 'short']).pipe(
-    z.enum(['long', 'short']).catch('Direction is required' as any),
-  ),
+  direction: z.enum(['long', 'short']).pipe(z.enum(['long', 'short'])),
   entry_price: z.string().min(1, 'Entry price is required'),
   exit_price: z.string().min(1, 'Exit price is required'),
   lot_size: z.string().min(1, 'Lot size is required'),
-  session: z.enum(['london', 'newyork', 'asia', 'other']).pipe(
-    z.enum(['london', 'newyork', 'asia', 'other']).catch('Session is required' as any),
-  ),
+  session: z.enum(['london', 'newyork', 'asia', 'other']),
   user_notes: z.string().optional(),
 })
 
@@ -44,6 +42,8 @@ interface TradeFormProps {
 export function TradeForm({ trade, onSuccess }: TradeFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imageUrl, setImageUrl] = useState<string | null>(trade?.image_url || null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const supabase = createClient()
 
   const {
@@ -75,6 +75,13 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
   const direction = watch('direction')
   const session = watch('session')
 
+  // const handleImageChange = (url: string | null, file?: File) => {
+  //   setImageUrl(url)
+  //   if (file) {
+  //     setImageFile(file)
+  //   }
+  // }
+
   const onSubmit = async (data: TradeFormData) => {
     setLoading(true)
     setError(null)
@@ -85,6 +92,22 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
       if (!user) {
         setError('Not authenticated')
         return
+      }
+
+      let finalImageUrl = imageUrl
+
+      // Upload new image if file is selected
+      if (imageFile) {
+        finalImageUrl = await uploadTradeImage(imageFile, user.id)
+        
+        // Delete old image if updating
+        if (trade?.image_url && trade.image_url !== finalImageUrl) {
+          try {
+            await deleteTradeImage(trade.image_url, user.id)
+          } catch (err) {
+            console.error('Error deleting old image:', err)
+          }
+        }
       }
 
       // Calculate P&L
@@ -101,6 +124,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
 
       const tradeData = {
         user_id: user.id,
+        image_url: finalImageUrl,
         trade_date: new Date(data.trade_date).toISOString(),
         pair: data.pair.toUpperCase(),
         direction: data.direction,
@@ -138,12 +162,41 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {error && (
         <div className="bg-destructive/15 text-destructive p-3 rounded-md text-sm">
           {error}
         </div>
       )}
+
+      {/* Image Upload */}
+      <div className="space-y-2">
+        <Label>Trade Screenshot (Optional)</Label>
+        <ImageUpload
+          value={imageUrl}
+          onChange={(url) => {
+            setImageUrl(url)
+          }}
+          disabled={loading}
+        />
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          id="image-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) {
+              setImageFile(file)
+              const reader = new FileReader()
+              reader.onload = () => {
+                setImageUrl(reader.result as string)
+              }
+              reader.readAsDataURL(file)
+            }
+          }}
+        />
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
