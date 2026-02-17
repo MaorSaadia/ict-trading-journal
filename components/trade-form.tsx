@@ -24,7 +24,7 @@ import type { Trade } from '@/lib/types'
 const tradeSchema = z.object({
   trade_date: z.string().min(1, 'Date is required'),
   pair: z.string().min(1, 'Pair is required'),
-  direction: z.enum(['long', 'short']).pipe(z.enum(['long', 'short'])),
+  direction: z.enum(['long', 'short']),
   entry_price: z.string().min(1, 'Entry price is required'),
   exit_price: z.string().min(1, 'Exit price is required'),
   lot_size: z.string().min(1, 'Lot size is required'),
@@ -42,8 +42,17 @@ interface TradeFormProps {
 export function TradeForm({ trade, onSuccess }: TradeFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [imageUrl, setImageUrl] = useState<string | null>(trade?.image_url || null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
+
+  // ✅ FIX: Track both the current URL and any new file separately
+  // currentImageUrl = what's already saved in DB (shown on edit)
+  // newImageFile = a new file the user just selected (null = no change)
+  // removeImage = user clicked X to remove the image
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(
+    trade?.image_url || null
+  )
+  const [newImageFile, setNewImageFile] = useState<File | null>(null)
+  const [removeImage, setRemoveImage] = useState(false)
+
   const supabase = createClient()
 
   const {
@@ -69,18 +78,26 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
           trade_date: new Date().toISOString().split('T')[0],
           direction: 'long',
           session: 'newyork',
+          user_notes: '',
         },
   })
 
   const direction = watch('direction')
   const session = watch('session')
 
-  // const handleImageChange = (url: string | null, file?: File) => {
-  //   setImageUrl(url)
-  //   if (file) {
-  //     setImageFile(file)
-  //   }
-  // }
+  // ✅ FIX: Handle image changes from ImageUpload
+  const handleImageChange = (file: File | null) => {
+    if (file === null) {
+      // User removed the image
+      setNewImageFile(null)
+      setRemoveImage(true)
+      setCurrentImageUrl(null)
+    } else {
+      // User selected a new file
+      setNewImageFile(file)
+      setRemoveImage(false)
+    }
+  }
 
   const onSubmit = async (data: TradeFormData) => {
     setLoading(true)
@@ -88,19 +105,18 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-
       if (!user) {
         setError('Not authenticated')
         return
       }
 
-      let finalImageUrl = imageUrl
+      let finalImageUrl: string | null = currentImageUrl
 
-      // Upload new image if file is selected
-      if (imageFile) {
-        finalImageUrl = await uploadTradeImage(imageFile, user.id)
-        
-        // Delete old image if updating
+      // Upload new image if user selected one
+      if (newImageFile) {
+        finalImageUrl = await uploadTradeImage(newImageFile, user.id)
+
+        // Delete old image if replacing
         if (trade?.image_url && trade.image_url !== finalImageUrl) {
           try {
             await deleteTradeImage(trade.image_url, user.id)
@@ -110,17 +126,24 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         }
       }
 
+      // Delete image if user removed it
+      if (removeImage && trade?.image_url) {
+        try {
+          await deleteTradeImage(trade.image_url, user.id)
+        } catch (err) {
+          console.error('Error deleting image:', err)
+        }
+        finalImageUrl = null
+      }
+
       // Calculate P&L
       const entryPrice = parseFloat(data.entry_price)
       const exitPrice = parseFloat(data.exit_price)
       const lotSize = parseFloat(data.lot_size)
 
-      let pnl = 0
-      if (data.direction === 'long') {
-        pnl = (exitPrice - entryPrice) * lotSize
-      } else {
-        pnl = (entryPrice - exitPrice) * lotSize
-      }
+      const pnl = data.direction === 'long'
+        ? (exitPrice - entryPrice) * lotSize
+        : (entryPrice - exitPrice) * lotSize
 
       const tradeData = {
         user_id: user.id,
@@ -137,19 +160,15 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
       }
 
       if (trade) {
-        // Update existing trade
         const { error } = await supabase
           .from('trades')
           .update(tradeData)
           .eq('id', trade.id)
-
         if (error) throw error
       } else {
-        // Insert new trade
         const { error } = await supabase
           .from('trades')
           .insert([tradeData])
-
         if (error) throw error
       }
 
@@ -169,32 +188,13 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         </div>
       )}
 
-      {/* Image Upload */}
+      {/* ✅ FIX: Pass existing image URL as value so it shows on edit */}
       <div className="space-y-2">
         <Label>Trade Screenshot (Optional)</Label>
         <ImageUpload
-          value={imageUrl}
-          onChange={(url) => {
-            setImageUrl(url)
-          }}
+          value={currentImageUrl}
+          onChange={handleImageChange}
           disabled={loading}
-        />
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          id="image-input"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) {
-              setImageFile(file)
-              const reader = new FileReader()
-              reader.onload = () => {
-                setImageUrl(reader.result as string)
-              }
-              reader.readAsDataURL(file)
-            }
-          }}
         />
       </div>
 
@@ -212,10 +212,10 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="pair">Pair/Symbol</Label>
+          <Label htmlFor="pair">Pair / Symbol</Label>
           <Input
             id="pair"
-            placeholder="EURUSD, NQ, ES, etc."
+            placeholder="EURUSD, NQ, ES..."
             {...register('pair')}
           />
           {errors.pair && (
@@ -226,7 +226,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="direction">Direction</Label>
+          <Label>Direction</Label>
           <Select
             value={direction}
             onValueChange={(value) => setValue('direction', value as 'long' | 'short')}
@@ -245,7 +245,7 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="session">Session</Label>
+          <Label>Session</Label>
           <Select
             value={session}
             onValueChange={(value) => setValue('session', value as any)}
@@ -315,12 +315,12 @@ export function TradeForm({ trade, onSuccess }: TradeFormProps) {
         <Textarea
           id="user_notes"
           placeholder="Add any notes about this trade..."
-          rows={4}
+          rows={3}
           {...register('user_notes')}
         />
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end">
         <Button type="submit" disabled={loading}>
           {loading ? 'Saving...' : trade ? 'Update Trade' : 'Add Trade'}
         </Button>

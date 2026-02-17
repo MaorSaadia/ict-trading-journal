@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Trade {
   id: string
   user_id: string
@@ -11,7 +10,7 @@ export interface Trade {
   lot_size: number | null
   pnl: number | null
   session: 'london' | 'newyork' | 'asia' | 'other' | null
-  ai_analysis: any | null
+  ai_analysis: AIAnalysis | null
   entry_quality: 'Aggressive' | 'High Probability' | 'Poor' | null
   ict_concepts: string[] | null
   mss_identified: boolean | null
@@ -21,6 +20,20 @@ export interface Trade {
   tradovate_order_id: number | null
   created_at: string
   updated_at: string
+}
+
+export interface AIAnalysis {
+  entryQuality: 'Aggressive' | 'High Probability' | 'Poor'
+  mssIdentified: boolean
+  fvgIdentified: boolean
+  ictConcepts: string[]
+  feedback: {
+    whatDidWell: string[]
+    whatToImprove: string[]
+    keySuggestion: string
+  }
+  reasoning: string
+  analyzedAt: string
 }
 
 export interface TradeFormData {

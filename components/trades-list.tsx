@@ -4,14 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import Image from 'next/image'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,10 +22,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { MoreVertical, Pencil, Trash2, Image as ImageIcon } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Image as ImageIcon,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { TradeForm } from '@/components/trade-form'
+import { AnalyzeButton } from '@/components/analyze-button'
+import { AIAnalysisDisplay } from '@/components/ai-analysis-display'
 import type { Trade } from '@/lib/types'
 
 interface TradesListProps {
@@ -44,22 +50,20 @@ export function TradesList({ trades }: TradesListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editTrade, setEditTrade] = useState<Trade | null>(null)
   const [viewImage, setViewImage] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   const handleDelete = async () => {
     if (!deleteId) return
-
     setDeleting(true)
     try {
       const { error } = await supabase
         .from('trades')
         .delete()
         .eq('id', deleteId)
-
       if (error) throw error
-
       setDeleteId(null)
       router.refresh()
     } catch (error) {
@@ -87,74 +91,132 @@ export function TradesList({ trades }: TradesListProps) {
 
   return (
     <>
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12.5"></TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Pair</TableHead>
-              <TableHead>Direction</TableHead>
-              <TableHead>Entry</TableHead>
-              <TableHead>Exit</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>P&L</TableHead>
-              <TableHead>Session</TableHead>
-              <TableHead className="w-12.5"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {trades.map((trade) => (
-              <TableRow key={trade.id}>
-                <TableCell>
+      {/* Header row */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="grid grid-cols-[40px_120px_80px_80px_100px_100px_60px_80px_120px_140px_80px] gap-2 px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground">
+          <div></div>
+          <div>Date</div>
+          <div>Pair</div>
+          <div>Direction</div>
+          <div>Entry</div>
+          <div>Exit</div>
+          <div>Size</div>
+          <div>P&L</div>
+          <div>Session</div>
+          <div>AI</div>
+          <div></div>
+        </div>
+
+        <div className="divide-y">
+          {trades.map((trade) => (
+            <div key={trade.id}>
+              {/* Trade Row */}
+              <div className="grid grid-cols-[40px_120px_80px_80px_100px_100px_60px_80px_120px_140px_80px] gap-2 px-4 py-3 items-center hover:bg-muted/20 transition-colors">
+
+                {/* Screenshot icon */}
+                <div>
                   {trade.image_url ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
+                    <button
+                      type="button"
                       onClick={() => setViewImage(trade.image_url)}
+                      className="w-8 h-8 flex items-center justify-center rounded hover:bg-muted transition-colors"
                     >
-                      <ImageIcon className="h-4 w-4" />
-                    </Button>
+                      <ImageIcon className="h-4 w-4 text-primary" />
+                    </button>
                   ) : (
-                    <div className="w-10 h-10 flex items-center justify-center">
+                    <div className="w-8 h-8 flex items-center justify-center">
                       <ImageIcon className="h-4 w-4 text-muted-foreground/30" />
                     </div>
                   )}
-                </TableCell>
-                <TableCell>
+                </div>
+
+                {/* Date */}
+                <div className="text-sm">
                   {format(new Date(trade.trade_date), 'MMM d, yyyy')}
-                </TableCell>
-                <TableCell className="font-medium">{trade.pair}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={trade.direction === 'long' ? 'default' : 'secondary'}
-                  >
+                </div>
+
+                {/* Pair */}
+                <div className="font-medium text-sm">{trade.pair}</div>
+
+                {/* Direction */}
+                <div>
+                  <Badge variant={trade.direction === 'long' ? 'default' : 'secondary'}>
                     {trade.direction}
                   </Badge>
-                </TableCell>
-                <TableCell>{trade.entry_price?.toFixed(5)}</TableCell>
-                <TableCell>{trade.exit_price?.toFixed(5)}</TableCell>
-                <TableCell>{trade.lot_size}</TableCell>
-                <TableCell>
-                  <span
-                    className={`font-medium ${
-                      (trade.pnl || 0) >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
-                    }`}
-                  >
-                    ${trade.pnl?.toFixed(2)}
+                </div>
+
+                {/* Entry */}
+                <div className="text-sm font-mono">{trade.entry_price?.toFixed(5)}</div>
+
+                {/* Exit */}
+                <div className="text-sm font-mono">{trade.exit_price?.toFixed(5)}</div>
+
+                {/* Size */}
+                <div className="text-sm">{trade.lot_size}</div>
+
+                {/* P&L */}
+                <div>
+                  <span className={`font-semibold text-sm ${
+                    (trade.pnl || 0) >= 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {(trade.pnl || 0) >= 0 ? '+' : ''}${trade.pnl?.toFixed(2)}
                   </span>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="capitalize">
+                </div>
+
+                {/* Session + Entry Quality */}
+                <div className="flex flex-col gap-1">
+                  <Badge variant="outline" className="capitalize text-xs w-fit">
                     {trade.session}
                   </Badge>
-                </TableCell>
-                <TableCell>
+                  {trade.entry_quality && (
+                    <Badge className={`text-xs w-fit border-0
+                      ${trade.entry_quality === 'High Probability'
+                        ? 'bg-green-500/20 text-green-700 dark:text-green-400'
+                        : ''}
+                      ${trade.entry_quality === 'Aggressive'
+                        ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                        : ''}
+                      ${trade.entry_quality === 'Poor'
+                        ? 'bg-red-500/20 text-red-700 dark:text-red-400'
+                        : ''}
+                    `}>
+                      {trade.entry_quality}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* ✅ FIX 1: Analyze Button - wrapped in div with z-index to fix clickability */}
+                <div className="relative z-10">
+                  <AnalyzeButton
+                    tradeId={trade.id}
+                    hasImage={!!trade.image_url}
+                    hasAnalysis={!!trade.ai_analysis}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1">
+                  {/* Expand AI analysis toggle */}
+                  {trade.ai_analysis && (
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(
+                        expandedId === trade.id ? null : trade.id
+                      )}
+                      className="w-8 h-8 flex items-center justify-center rounded hover:bg-muted transition-colors"
+                    >
+                      {expandedId === trade.id
+                        ? <ChevronUp className="h-4 w-4" />
+                        : <ChevronDown className="h-4 w-4" />
+                      }
+                    </button>
+                  )}
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -165,21 +227,38 @@ export function TradesList({ trades }: TradesListProps) {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => setDeleteId(trade.id)}
-                        className="text-destructive"
+                        className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                </div>
+              </div>
+
+              {/* Expandable AI Analysis Panel */}
+              {expandedId === trade.id && trade.ai_analysis && (
+                <div className="px-6 pb-6 bg-muted/10 border-t">
+                  <div className="pt-4 max-w-3xl">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      🤖 AI Analysis
+                      <span className="text-xs text-muted-foreground font-normal">
+                        {trade.ai_analysis.analyzedAt
+                          ? format(new Date(trade.ai_analysis.analyzedAt), 'MMM d, yyyy HH:mm')
+                          : ''}
+                      </span>
+                    </h3>
+                    <AIAnalysisDisplay analysis={trade.ai_analysis} />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Image Viewer Dialog */}
+      {/* Image Viewer */}
       <Dialog open={!!viewImage} onOpenChange={() => setViewImage(null)}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -198,7 +277,7 @@ export function TradesList({ trades }: TradesListProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
+      {/* ✅ FIX 3: Edit Dialog - passes full trade including image_url */}
       <Dialog open={!!editTrade} onOpenChange={() => setEditTrade(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -216,7 +295,7 @@ export function TradesList({ trades }: TradesListProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Trade</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this trade? This action cannot be undone.
+              Are you sure you want to delete this trade? This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
