@@ -13,6 +13,27 @@ export default async function JournalPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+// Add at top after getting user
+const { data: profile } = await supabase
+  .from('profiles')
+  .select('subscription_tier')
+  .eq('id', user.id)
+  .single()
+
+// Check if at limit
+const startOfMonth = new Date()
+startOfMonth.setDate(1)
+startOfMonth.setHours(0, 0, 0, 0)
+
+const { count: tradesThisMonth } = await supabase
+  .from('trades')
+  .select('*', { count: 'exact', head: true })
+  .eq('user_id', user.id)
+  .gte('created_at', startOfMonth.toISOString())
+
+const tier = profile?.subscription_tier || 'free'
+const isAtLimit = tier === 'free' && (tradesThisMonth || 0) >= 10
+
   // Fetch all trades
   const { data: trades } = await supabase
     .from('trades')
@@ -95,9 +116,25 @@ export default async function JournalPage() {
               </p>
             </div>
             {/* ✅ Pass propFirms to dialog */}
-            <NewTradeDialog propFirms={propFirms || []} />
+<NewTradeDialog propFirms={propFirms || []} disabled={isAtLimit} />
           </div>
-
+{isAtLimit && (
+  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="font-medium text-yellow-800 dark:text-yellow-400">
+          Free Tier Limit Reached
+        </p>
+        <p className="text-sm text-yellow-700 dark:text-yellow-500">
+          You&apos;ve used all 10 trades this month. Upgrade to Pro for unlimited trades.
+        </p>
+      </div>
+      <Link href="/pricing">
+        <Button>Upgrade Now</Button>
+      </Link>
+    </div>
+  </div>
+)}
           <TradesList trades={trades || []} propFirms={propFirms || []} />
         </div>
       </main>

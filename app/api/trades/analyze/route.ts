@@ -1,44 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
 import { analyzeTradeWithGemini, imageUrlToBase64 } from '@/lib/ai/analyze-trade'
+import { checkSubscriptionLimit } from '@/lib/subscription'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
     const supabase = await createClient()
 
-    // Check auth
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check subscription limits
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('subscription_tier')
-      .eq('id', user.id)
-      .single()
+    // ✅ Check subscription limit
+    const limitCheck = await checkSubscriptionLimit(user.id, 'analyses')
 
-    // Free tier: limit AI analysis to 10 per month
-    if (profile?.subscription_tier === 'free') {
-      const startOfMonth = new Date()
-      startOfMonth.setDate(1)
-      startOfMonth.setHours(0, 0, 0, 0)
-
-      const { count } = await supabase
-        .from('trades')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .not('ai_analysis', 'is', null)
-        .gte('created_at', startOfMonth.toISOString())
-
-      if (count && count >= 10) {
-        return NextResponse.json(
-          { error: 'Free tier limit: 10 AI analyses per month. Upgrade to Pro for unlimited.' },
-          { status: 403 }
-        )
-      }
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: `Free tier limit: ${limitCheck.limit} AI analyses per month. You've used ${limitCheck.current}. Upgrade to Pro for unlimited analyses.`,
+          limitReached: true,
+        },
+        { status: 403 }
+      )
     }
 
     const { tradeId } = await req.json()
@@ -47,7 +32,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Trade ID is required' }, { status: 400 })
     }
 
-    // Get trade with image
     const { data: trade, error: tradeError } = await supabase
       .from('trades')
       .select('*')
@@ -66,10 +50,8 @@ export async function POST(req: Request) {
       )
     }
 
-    // Convert image to base64
     const { base64, mimeType } = await imageUrlToBase64(trade.image_url)
 
-    // Analyze with Gemini
     const analysis = await analyzeTradeWithGemini(
       base64,
       mimeType,
@@ -83,7 +65,6 @@ export async function POST(req: Request) {
       }
     )
 
-    // Save analysis to database
     const { error: updateError } = await supabase
       .from('trades')
       .update({

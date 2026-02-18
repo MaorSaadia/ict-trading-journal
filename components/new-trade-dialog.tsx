@@ -24,9 +24,11 @@ interface PropFirm {
 // ✅ Props with propFirms
 interface NewTradeDialogProps {
   propFirms?: PropFirm[]
+    disabled?: boolean
+
 }
 
-export function NewTradeDialog({ propFirms = [] }: NewTradeDialogProps) {
+export function NewTradeDialog({ propFirms = [], disabled = false }: NewTradeDialogProps) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
@@ -38,7 +40,7 @@ export function NewTradeDialog({ propFirms = [] }: NewTradeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button disabled={disabled}>
           <Plus className="h-4 w-4 mr-2" />
           New Trade
         </Button>

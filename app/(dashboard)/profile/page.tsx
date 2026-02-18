@@ -1,18 +1,22 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
-import Link from 'next/link'
+import { getUserUsageStats } from '@/lib/subscription'
+
 
 export default async function ProfilePage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
-  }
+if (!user) {
+  redirect('/login')
+}
+
+const usage = await getUserUsageStats(user.id)
 
   // Fetch user profile
   const { data: profile } = await supabase
@@ -116,7 +120,81 @@ export default async function ProfilePage() {
                   </Button>
                 </div>
               )}
+<Card>
+  <CardHeader>
+    <CardTitle>Usage This Month</CardTitle>
+    <CardDescription>Your current plan limits</CardDescription>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    {/* Trades */}
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span className="text-muted-foreground">Trades</span>
+        <span className="font-medium">
+          {usage.trades.current} / {usage.trades.limit === -1 ? '∞' : usage.trades.limit}
+        </span>
+      </div>
+      {usage.trades.limit !== -1 && (
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all ${
+              usage.trades.percentage >= 90
+                ? 'bg-red-500'
+                : usage.trades.percentage >= 70
+                ? 'bg-yellow-500'
+                : 'bg-green-500'
+            }`}
+            style={{ width: `${Math.min(usage.trades.percentage, 100)}%` }}
+          />
+        </div>
+      )}
+    </div>
 
+    {/* AI Analyses */}
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span className="text-muted-foreground">AI Analyses</span>
+        <span className="font-medium">
+          {usage.analyses.current} / {usage.analyses.limit === -1 ? '∞' : usage.analyses.limit}
+        </span>
+      </div>
+      {usage.analyses.limit !== -1 && (
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all ${
+              usage.analyses.percentage >= 90
+                ? 'bg-red-500'
+                : usage.analyses.percentage >= 70
+                ? 'bg-yellow-500'
+                : 'bg-green-500'
+            }`}
+            style={{ width: `${Math.min(usage.analyses.percentage, 100)}%` }}
+          />
+        </div>
+      )}
+    </div>
+
+    {/* Prop Firms */}
+    <div>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Active Prop Firms</span>
+        <span className="font-medium">
+          {usage.propFirms.current} / {usage.propFirms.limit}
+        </span>
+      </div>
+    </div>
+
+    {usage.tier === 'free' && (
+      <div className="pt-2 border-t">
+        <Link href="/pricing">
+          <Button className="w-full" size="sm">
+            Upgrade for Unlimited
+          </Button>
+        </Link>
+      </div>
+    )}
+  </CardContent>
+</Card>
               {profile?.subscription_tier === 'pro' && (
                 <div className="space-y-4">
                   <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
