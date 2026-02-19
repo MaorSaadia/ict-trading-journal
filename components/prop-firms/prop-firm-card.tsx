@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState } from 'react'
@@ -33,8 +34,12 @@ import {
   Calendar,
   Target,
   Shield,
+  Badge,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { Plug, RefreshCw, Loader2 } from 'lucide-react'
+import { ConnectTradovateDialog } from '../tradovate/connect-dialog'
+// import { useToast } from '@/hooks/use-toast'
 
 interface Trade {
   id: string
@@ -45,6 +50,8 @@ interface Trade {
 }
 
 interface PropFirmChallenge {
+  last_sync_at: any
+  auto_sync_enabled: any
   id: string
   firm_name: string
   challenge_type: string
@@ -146,6 +153,63 @@ export function PropFirmCard({ challenge }: PropFirmCardProps) {
       .eq('id', challenge.id)
     router.refresh()
   }
+
+const [syncing, setSyncing] = useState(false)
+
+const handleManualSync = async () => {
+  setSyncing(true)
+  try {
+    const { data: connection } = await supabase
+      .from('tradovate_connections')
+      .select('id')
+      .eq('prop_firm_id', challenge.id)
+      .single()
+
+    if (!connection) {
+      // toast({
+      //   title: 'No connection found',
+      //   description: 'Please connect your Tradovate account first',
+      //   variant: 'destructive',
+      // })
+      console.log('No connection found for prop firm ID:', challenge.id);
+      return
+    }
+
+    const response = await fetch('/api/tradovate/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connectionId: connection.id }),
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      // toast({
+      //   title: 'Sync complete!',
+      //   description: `${result.newTrades} new trades imported, ${result.updatedTrades} updated`,
+      // })
+console.log('Sync result:', result);
+
+      router.refresh()
+    } else {
+      // toast({
+      //   title: 'Sync completed with errors',
+      //   description: `${result.errors.length} errors occurred`,
+      //   variant: 'destructive',
+      // })
+      console.log('Sync errors:', result.errors);
+    }
+  } catch (error: any) {
+    // toast({
+    //   title: 'Sync failed',
+    //   description: error.message,
+    //   variant: 'destructive',
+    // })
+    console.log('Sync error:', error);
+  } finally {
+    setSyncing(false)
+  }
+}
 
   return (
     <>
@@ -337,7 +401,87 @@ export function PropFirmCard({ challenge }: PropFirmCardProps) {
               ${(challenge.max_loss_limit - Math.abs(Math.min(totalPnL, 0))).toFixed(2)} remaining
             </p>
           </div>
+{/* Tradovate Sync Section */}
+<div className="pt-4 border-t space-y-3">
+  {challenge.auto_sync_enabled ? (
+    // Connected - show sync status
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Plug className="h-4 w-4 text-blue-500" />
+          <span className="text-sm font-medium">Tradovate Sync</span>
+          <Badge variant="secondary" className="text-xs">Active</Badge>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleManualSync}
+          disabled={syncing}
+        >
+          {syncing ? (
+            <>
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              Syncing...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Sync Now
+            </>
+          )}
+        </Button>
+      </div>
+      {challenge.last_sync_at && (
+        <p className="text-xs text-muted-foreground">
+          Last synced: {format(new Date(challenge.last_sync_at), 'MMM d, yyyy HH:mm')}
+        </p>
+      )}
+    </div>
+  ) : (
+    // Not connected - show connect button
+    <div className="text-center py-2">
+      <p className="text-xs text-muted-foreground mb-3">
+        Connect Tradovate to auto-sync trades
+      </p>
+      <ConnectTradovateDialog propFirmId={challenge.id} />
+    </div>
+  )}
+</div>
 
+{challenge.auto_sync_enabled && (
+  <div className="pt-4 border-t">
+    <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-2">
+        <Plug className="h-4 w-4 text-blue-500" />
+        <span className="text-sm font-medium">Tradovate Sync</span>
+        <Badge variant="secondary" className="text-xs">Active</Badge>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleManualSync}
+        disabled={syncing}
+      >
+        {syncing ? (
+          <>
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            Syncing...
+          </>
+        ) : (
+          <>
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Sync Now
+          </>
+        )}
+      </Button>
+    </div>
+    {challenge.last_sync_at && (
+      <p className="text-xs text-muted-foreground">
+        Last synced: {format(new Date(challenge.last_sync_at), 'MMM d, yyyy HH:mm')}
+      </p>
+    )}
+  </div>
+)}
           {/* Footer stats */}
           <div className="flex justify-between items-center pt-2 border-t text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
